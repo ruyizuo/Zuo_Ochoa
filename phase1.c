@@ -61,11 +61,12 @@ void dispatcher()
    * because the sentinel is always runnable.
    */
 	int i =0;
+	int highest_pid = -1;
 	while(procTable[i] != null){
-	//check priority
-	//run the process
-
-
+		if(procTable[i].process_id > highest_pid){ //if this table entry's processID is higher, update the current highest
+			highest_pid = procTable[i].process_id; //new highest priority
+		}
+	i++;
 	}
 
 
