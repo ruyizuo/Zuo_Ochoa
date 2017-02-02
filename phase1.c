@@ -1,4 +1,4 @@
-/* ------------------------------------------------------------------------
+Akana /* ------------------------------------------------------------------------
    phase1.c
 
    Skeleton file for Phase 1. These routines are very incomplete and are
@@ -44,6 +44,9 @@ static int sentinel(void *arg);
 static void launch(void);
 
 /* -------------------------- Functions ----------------------------------- */
+
+
+
 /* ------------------------------------------------------------------------
    Name - dispatcher
    Purpose - runs the highest priority runnable process
@@ -51,14 +54,26 @@ static void launch(void);
    Returns - nothing
    Side Effects - runs a process
    ----------------------------------------------------------------------- */
-
 void dispatcher()
 {
   /*
    * Run the highest priority runnable process. There is guaranteed to be one
    * because the sentinel is always runnable.
    */
+	int i =0;
+	while(procTable[i] != null){
+	//check priority
+	//run the process
+
+
+	}
+
+
+
+
+
 }
+
 /* ------------------------------------------------------------------------
    Name - startup
    Purpose - Initializes semaphores, process lists and interrupt vector.
@@ -77,7 +92,8 @@ void startup(int argc, char **argv)
 	}
 
   /* Initialize the Ready list, Blocked list, etc. here */
-
+	struct PCB readyList [50];
+	struct PCB blockedList [50];
   /* Initialize the interrupt vector here */
 
   /* Initialize the semaphores here */
@@ -100,6 +116,10 @@ void startup(int argc, char **argv)
   return;
 } /* End of startup */
 
+
+
+
+
 /* ------------------------------------------------------------------------
    Name - finish
    Purpose - Required by USLOSS
@@ -111,6 +131,10 @@ void finish(int argc, char **argv)
 {
   USLOSS_Console("Goodbye.\n");
 } /* End of finish */
+
+
+
+
 
 /* ------------------------------------------------------------------------
    Name - P1_Fork
@@ -132,6 +156,13 @@ int P1_Fork(char *name, int (*f)(void *), void *arg, int stacksize, int priority
     // more stuff here, e.g. allocate stack, page table, initialize context, etc.
     return newPid;
 } /* End of fork */
+
+
+
+
+
+
+
 
 /* ------------------------------------------------------------------------
    Name - launch
@@ -155,6 +186,9 @@ void launch(void)
   P1_Quit(rc);
 } /* End of launch */
 
+
+
+
 /* ------------------------------------------------------------------------
    Name - P1_Quit
    Purpose - Causes the process to quit and wait for its parent to call P1_Join.
@@ -165,6 +199,10 @@ void launch(void)
 void P1_Quit(int status) {
   // Do something here.
 }
+
+
+
+
 
 /* ------------------------------------------------------------------------
    Name - P1_GetState
