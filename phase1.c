@@ -1,4 +1,4 @@
-Akana /* ------------------------------------------------------------------------
+/* ------------------------------------------------------------------------
    phase1.c
 
    Skeleton file for Phase 1. These routines are very incomplete and are
@@ -10,22 +10,20 @@ Akana /* -----------------------------------------------------------------------
 #include <stddef.h>
 #include "usloss.h"
 #include "phase1.h"
+#include "p3stubs.c"
 
 /* -------------------------- Globals ------------------------------------- */
 
-//table state constants
-#define FINISHED  2
-#define WAITING   1
-#define NOPROCESS 0
-
-
-
-
 typedef struct PCB {
-    USLOSS_Context      context;
-    int                 (*startFunc)(void *);   /* Starting function */
+    USLOSS_Context       context;
+    int                  (*startFunc)(void *);  /* Starting function */
     void                 *startArg;             /* Arg to starting function */
-    int 	 	process_id		//used to keep track of process
+    int                  PID;
+    int                  priority;
+    int                  tag;
+    int                  stacksize;
+    int                  *stack;
+    
 } PCB;
 
 
@@ -44,9 +42,6 @@ static int sentinel(void *arg);
 static void launch(void);
 
 /* -------------------------- Functions ----------------------------------- */
-
-
-
 /* ------------------------------------------------------------------------
    Name - dispatcher
    Purpose - runs the highest priority runnable process
@@ -54,27 +49,14 @@ static void launch(void);
    Returns - nothing
    Side Effects - runs a process
    ----------------------------------------------------------------------- */
+
 void dispatcher()
 {
   /*
    * Run the highest priority runnable process. There is guaranteed to be one
    * because the sentinel is always runnable.
    */
-	int i =0;
-	int highest_pid = -1;
-	while(procTable[i] != null){
-		if(procTable[i].process_id > highest_pid){ //if this table entry's processID is higher, update the current highest
-			highest_pid = procTable[i].process_id; //new highest priority
-		}
-	i++;
-	}
-
-
-
-
-
 }
-
 /* ------------------------------------------------------------------------
    Name - startup
    Purpose - Initializes semaphores, process lists and interrupt vector.
@@ -87,14 +69,9 @@ void startup(int argc, char **argv)
 {
 
   /* initialize the process table here */
-	int i =0;
-	for(i =0; i< P1_MAXPROC; i++){
-	procTable[i].process_id = NOPROCESS //no process code =0
-	}
-
+    procTable[P1_MAXPROC] = NULL;
   /* Initialize the Ready list, Blocked list, etc. here */
-	struct PCB readyList [50];
-	struct PCB blockedList [50];
+
   /* Initialize the interrupt vector here */
 
   /* Initialize the semaphores here */
@@ -117,10 +94,6 @@ void startup(int argc, char **argv)
   return;
 } /* End of startup */
 
-
-
-
-
 /* ------------------------------------------------------------------------
    Name - finish
    Purpose - Required by USLOSS
@@ -133,10 +106,6 @@ void finish(int argc, char **argv)
   USLOSS_Console("Goodbye.\n");
 } /* End of finish */
 
-
-
-
-
 /* ------------------------------------------------------------------------
    Name - P1_Fork
    Purpose - Gets a new process from the process table and initializes
@@ -148,22 +117,56 @@ void finish(int argc, char **argv)
    Side Effects - ReadyList is changed, procTable is changed, Current
                   process information changed
    ------------------------------------------------------------------------ */
+// Use USLOSS_PSR_CURRENT_MODE & USLOSS_PsrGet to check kernel mode
 int P1_Fork(char *name, int (*f)(void *), void *arg, int stacksize, int priority, int tag)
 {
-    int newPid = 0;
+    int i = 0;
+    for (i = 0; i < P1_MAXPROC ; i++) {
+        if(procTable[i] == NULL){
+            if(i == 0){
+                pid = 0;
+                break;
+            }else
+            break;
+        }
+    }
+    int newPid = i;
     /* newPid = pid of empty PCB here */
     procTable[newPid].startFunc = f;
     procTable[newPid].startArg = arg;
+    procTable[newPid].PID = newPid;
+    procTable[newPid].priority = priority;
+    procTable[newPid].stacksize = stacksize;
     // more stuff here, e.g. allocate stack, page table, initialize context, etc.
+    P3_AllocatePageTable(newPid);
+    //Assume stack is integer type
+    procTable[newPid].stack = (int*)malloc(stacksize * sizeof(int));
+    //Not sure initialize context in Fork or dispatcher
+    USLOSS_ContextSwitch(NULL,procTable[newPid].context);
+    
+    if (priority > P1_MAXPROC[pid].priority) {
+        pid = newPid;
+        dispatcher();
+    }
+    
+    int result;
+    
+    if(tag != 0 && tag != 1){  //if tage is invalid, return -4
+        result = -4;
+    }else if(priority <= 0){   //if priority is invalid, return -3
+        result = -3;
+    }else if(stacksize < USLOSS_MIN_STACK){ //if stacksize is less than USLOSS_MIN_STACK, return -2
+        result = -2;
+    //if no more processes, return -1. But I dont know what means no more processes, does that mean the
+    //process table is full?
+    }else if(){
+        result = -1;
+    }else{
+        result = newPid;
+    }
+    
     return newPid;
 } /* End of fork */
-
-
-
-
-
-
-
 
 /* ------------------------------------------------------------------------
    Name - launch
@@ -187,9 +190,6 @@ void launch(void)
   P1_Quit(rc);
 } /* End of launch */
 
-
-
-
 /* ------------------------------------------------------------------------
    Name - P1_Quit
    Purpose - Causes the process to quit and wait for its parent to call P1_Join.
@@ -200,10 +200,6 @@ void launch(void)
 void P1_Quit(int status) {
   // Do something here.
 }
-
-
-
-
 
 /* ------------------------------------------------------------------------
    Name - P1_GetState
