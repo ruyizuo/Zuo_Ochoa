@@ -37,7 +37,8 @@ PCB procTable[P1_MAXPROC];
 
 /* current process ID */
 int pid = -1;
-
+/* size of the process queue */
+int queueSize =0;
 /* number of processes */
 
 int numProcs = 0;
@@ -48,19 +49,13 @@ static void launch(void);
 
 
 /* -------------------------- Functions ----------------------------------- */
-/* ------------------------------------------------------------------------
- Name - dispatcher
- Purpose - runs the highest priority runnable process
- Parameters - none
- Returns - nothing
- Side Effects - runs a process
- ----------------------------------------------------------------------- */
-
+//queue structure
 void insert(int PID)
 {
     struct Node *newNode;
     newNode = (struct Node*)malloc(sizeof(struct Node));
     newNode->data = procTable[PID];
+	queueSize++; //always update the queue size
     newNode -> next = NULL;
     if(front == NULL)
         front = rear = newNode;
@@ -71,12 +66,39 @@ void insert(int PID)
 }
 
 
+
+/* ------------------------------------------------------------------------
+ Name - dispatcher
+ Purpose - runs the highest priority runnable process
+ Parameters - none
+ Returns - nothing
+ Side Effects - runs a process
+ ----------------------------------------------------------------------- */
+
+
 void dispatcher()
 {
-    /*
-     * Run the highest priority runnable process. There is guaranteed to be one
-     * because the sentinel is always runnable.
-     */
+int i =0;
+bool processChanged = false;  //this boolean will be set to true IF we found a process with higher priority to run
+int currentHighestPriority = pid; //set global pid to be the highest priority
+int positionInProcTable = 	0;  //this var holds the position in which a process is in the ProcTable
+PCB highestPriorityProcess;
+
+  for(i =0; i<queueSize; i++){
+	if(procTable[i].PID < currentHighestPriority){
+		currentHighestPriority = procTable[i].PID;	//save priority value
+		positionInProcTable = i;			//save position in table
+		highestPriorityProcess = procTable[i];		//save PCB
+	}
+    }
+
+
+
+
+
+
+
+
 }
 /* ------------------------------------------------------------------------
  Name - startup
@@ -182,9 +204,8 @@ int P1_Fork(char *name, int (*f)(void *), void *arg, int stacksize, int priority
        //Not sure initialize context in Fork or dispatcher
        USLOSS_ContextSwitch(NULL,procTable[newPid].context);
        
-       if (priority > P1_MAXPROC[pid].priority) {
-           pid = newPid;
-           insert(pid);
+       if (priority < procTable[pid].priority) {
+           insert(newPid);
            dispatcher();
        }
        
