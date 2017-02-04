@@ -88,15 +88,11 @@ PCB highestPriorityProcess;
 	if(procTable[i].PID < currentHighestPriority){
 		currentHighestPriority = procTable[i].PID;	//save priority value
 		positionInProcTable = i;			//save position in table
-		highestPriorityProcess = procTable[i];		//save PCB
+		highestPriorityProcess = procTable[i].priority;		//save PCB
 	}
     }
 
-
-
-
-
-
+	
 
 
 }
@@ -203,7 +199,7 @@ int P1_Fork(char *name, int (*f)(void *), void *arg, int stacksize, int priority
        procTable[newPid].stack = (int*)malloc(stacksize * sizeof(int));
        //Not sure initialize context in Fork or dispatcher
        USLOSS_ContextSwitch(NULL,procTable[newPid].context);
-       
+
        if (priority < procTable[pid].priority) {
            insert(newPid);
            dispatcher();
