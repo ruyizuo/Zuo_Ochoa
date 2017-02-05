@@ -119,6 +119,7 @@ void dispatcher()
     }
     
     
+    
     if(processChanged == true){  //we found a higher priority process
         //We have highest PCB saved in highestPriorityProcess
         int oldpid, newpid;
@@ -126,6 +127,8 @@ void dispatcher()
         newpid = highestPriorityProcess.PID;
         pid = newpid;
         
+        
+        procTable[newpid].status = 0; //find the highest priority and make its status to "running"
         USLOSS_ContextSwitch(&procTable[oldpid].context, &procTable[newpid].context) //we need to switch contexts "run it"
         
         delete(highestPriorityProcess.PID);  //takes care of deleting it from the queue
@@ -232,7 +235,7 @@ int P1_Fork(char *name, int (*f)(void *), void *arg, int stacksize, int priority
            procTable[newPid].PID = newPid;
            procTable[newPid].priority = priority;
            procTable[newPid].stacksize = stacksize;
-           procTable[newPid].status = 0; /* process is runnable */
+           procTable[newPid].status = 2; /* process we not use yet*/
            // more stuff here, e.g. allocate stack, page table, initialize context, etc.
            P3_AllocatePageTable(newPid);
            //Assume stack is integer type
@@ -293,8 +296,13 @@ int P1_Fork(char *name, int (*f)(void *), void *arg, int stacksize, int priority
         Side Effects - none
         ------------------------------------------------------------------------ */
        int P1_GetState(int PID) {
-           return procTable[PID].PID;
+           return procTable[PID].status;
        }
+       
+       int P1_GetPid() {
+     
+       }
+
        
        /* ------------------------------------------------------------------------
         Name - sentinel
