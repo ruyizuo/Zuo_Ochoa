@@ -57,7 +57,6 @@ void insert(int PID)
     struct Node *newNode;
     newNode = (struct Node*)malloc(sizeof(struct Node));
     newNode->data = procTable[PID];
-
     queueSize++; //always update the queue size
     newNode -> next = NULL;
     if(front == NULL)
@@ -68,32 +67,16 @@ void insert(int PID)
     }
 }
 
-void deque(int targetPID)
+void deque()
 {
     if(front == NULL){ // if node tree is empty
 
     }else{
-	struct Node *traverser = front;
-
-	if(traverser->data.PID == targetPID){
-	  front = traverser->next;
-	  free(traverser);
-	  return;
-	}
-	while(traverser != NULL){
-  	  if(traverser->next == NULL)
-		break;
-	  if(traverser->next->data.PID == targetPID){
-		struct Node *temp = traverser->next;
-		traverser->next = traverser->next->next;
-		free(temp);
-		return;
-	 }
-	traverser = traverser->next;
-
-	}//end of while
-      }//close else
-    }//close dequeue()
+        struct Node *temp = front;
+        front = front -> next;
+        free(temp);
+    }
+}
 
 
 
@@ -115,26 +98,18 @@ void dispatcher()
     PCB highestPriorityProcess;
 
     while(front != NULL){
-        if(front->data.priority < currentHighestPriority){
-            currentHighestPriority = front->data.priority;	//save priority value
-            positionInProcTable = i;				//save position in table
-            highestPriorityProcess = front->data;		//save PCB
+        if(front.data.priority < currentHighestPriority){
+            currentHighestPriority = (front->data).PID;	//save priority value
+            positionInProcTable = i;			//save position in table
+            highestPriorityProcess = (front->data).priority;		//save PCB
             processChanged = true;
         }
     }
     
-
     if(processChanged == true){  //we found a higher priority process
-     //We have highest PCB saved in highestPriorityProcess
-	oldpid = pid;
-	newpid = highestPriorityProcess.PID;
-	pid = newpid;
-
-	USLOSS_ContextSwitch(&procTable[oldpid].context, &procTable[newpid].context) //we need to switch contexts "run it"
-
- 	deque(highestPriorityProcess.PID);  //takes care of deleting it from the queue
-
-	}
+        //need to delete it from the queue
+        
+    }
     
     
 }
@@ -241,8 +216,8 @@ int P1_Fork(char *name, int (*f)(void *), void *arg, int stacksize, int priority
                P3_AllocatePageTable(newPid);
                //Assume stack is integer type
                procTable[newPid].stack = (int*)malloc(stacksize * sizeof(int));
-               //Initiealize context
-               USLOSS_ContextInit(&(procTable[newPid].context), USLOSS_PsrGet(), procTable[newPid].stack, stacksize, launch);
+               //Not sure initialize context in Fork or dispatcher
+               USLOSS_ContextSwitch(NULL,procTable[newPid].context);
                
                if (priority < procTable[pid].priority) {
                    insert(newPid);
