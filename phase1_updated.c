@@ -7,6 +7,8 @@
 #include <stddef.h>
 #include "usloss.h"
 #include "phase1.h"
+#include <stdlib.h>
+#include <stdbool.h>
 #include "p3stubs.c"
 
 /* -------------------------- Globals ------------------------------------- */
@@ -45,6 +47,8 @@ int queueSize =0;
 
 int numProcs = 0;
 
+int currentRunningPID = -1;
+
 static int sentinel(void *arg);
 static void launch(void);
 
@@ -73,7 +77,7 @@ void delete(int targetPID)
     
         while(temp!=NULL){
             
-            if(temp->data==procTable[targetPID]){
+            if((temp->data).PID == procTable[targetPID].PID){
                 
                 if(temp==head){
                     head=temp->next;
@@ -109,18 +113,18 @@ void dispatcher()
     int positionInProcTable = 	0;  //this var holds the position in which a process is in the ProcTable
     PCB highestPriorityProcess;
     
-    while(front != NULL){
-        if(front->data.priority < currentHighestPriority){
-            currentHighestPriority = front->data.priority;	//save priority value
-            positionInProcTable = i;				//save position in table
-            highestPriorityProcess = front->data;		//save PCB
+    while(head != NULL){
+        if(head->data.priority < currentHighestPriority){
+            currentHighestPriority = head->data.priority;	 //save priority value
+            positionInProcTable = i;				         //save position in table
+            highestPriorityProcess = head->data;		     //save PCB
             processChanged = true;
         }
     }
     
     
     
-    if(processChanged == true){  //we found a higher priority process
+    if(processChanged){  //we found a higher priority process
         //We have highest PCB saved in highestPriorityProcess
         int oldpid, newpid;
         oldpid = pid;
@@ -128,8 +132,11 @@ void dispatcher()
         pid = newpid;
         
         
+        USLOSS_ContextSwitch(&procTable[oldpid].context, &procTable[newpid].context); //we need to switch contexts "run it"
+        
+        currentRunningPID = newpid;
         procTable[newpid].status = 0; //find the highest priority and make its status to "running"
-        USLOSS_ContextSwitch(&procTable[oldpid].context, &procTable[newpid].context) //we need to switch contexts "run it"
+        procTable[newpid].status = 3; //wait for quitting
         
         delete(highestPriorityProcess.PID);  //takes care of deleting it from the queue
         
@@ -205,18 +212,18 @@ void finish(int argc, char **argv)
 // Use USLOSS_PSR_CURRENT_MODE & USLOSS_PsrGet to check kernel mode
 int P1_Fork(char *name, int (*f)(void *), void *arg, int stacksize, int priority, int tag)
 {
-    int i = 0;
+    int newPid = 0;
     int result;
     //check if in kernel mode
     if(!(USLOSS_PSR_CURRENT_MODE & USLOSS_psrGet()){
         //throw some sort of error because it was not in kernel mode
     }
-       for (i = 0; i < P1_MAXPROC ; i++) {
-           if(procTable[i].PID == -1){
+       for (newPid = 0; newPid < P1_MAXPROC ; newPid++) {
+           if(procTable[newPid].PID == -1){
                break;
            }
        }
-       int newPid = i;
+ 
        //if no more processes, return -1.
        if(newPid >= P1_MAXPROC){
            result = -1;
@@ -249,7 +256,6 @@ int P1_Fork(char *name, int (*f)(void *), void *arg, int stacksize, int priority
            }
            
            result = newPid;
-       }
        
        }
        return newPid;
@@ -300,7 +306,7 @@ int P1_Fork(char *name, int (*f)(void *), void *arg, int stacksize, int priority
        }
        
        int P1_GetPid() {
-     
+           return currentRunningPID;
        }
 
        
