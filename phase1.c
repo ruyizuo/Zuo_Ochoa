@@ -57,13 +57,24 @@ void insert(int PID)
     struct Node *newNode;
     newNode = (struct Node*)malloc(sizeof(struct Node));
     newNode->data = procTable[PID];
-	queueSize++; //always update the queue size
+    queueSize++; //always update the queue size
     newNode -> next = NULL;
     if(front == NULL)
         front = rear = newNode;
     else{
         rear -> next = newNode;
         rear = newNode;
+    }
+}
+
+void deque()
+{
+    if(front == NULL){ // if node tree is empty
+        
+    }else{
+        struct Node *temp = front;
+        front = front -> next;
+        free(temp);
     }
 }
 
@@ -80,27 +91,27 @@ void insert(int PID)
 
 void dispatcher()
 {
-int i =0;
-bool processChanged = false;  //this boolean will be set to true IF we found a process with higher priority to run
-int currentHighestPriority = pid; //set global pid to be the highest priority
-int positionInProcTable = 	0;  //this var holds the position in which a process is in the ProcTable
-PCB highestPriorityProcess;
-
-  while(front != NULL){
-	if(front.data.priority < currentHighestPriority){
-		currentHighestPriority = front.data.PID;	//save priority value
-		positionInProcTable = i;			//save position in table
-		highestPriorityProcess = front.data.priority;		//save PCB
-		processChanged = true;
-	}
+    int i =0;
+    bool processChanged = false;  //this boolean will be set to true IF we found a process with higher priority to run
+    int currentHighestPriority = pid; //set global pid to be the highest priority
+    int positionInProcTable = 	0;  //this var holds the position in which a process is in the ProcTable
+    PCB highestPriorityProcess;
+    
+    while(front != NULL){
+        if(front.data.priority < currentHighestPriority){
+            currentHighestPriority = (front->data).PID;	//save priority value
+            positionInProcTable = i;			//save position in table
+            highestPriorityProcess = (front->data).priority;		//save PCB
+            processChanged = true;
+        }
     }
-
-  if(processChanged == true){  //we found a higher priority process
-	//need to delete it from the queue
-
-	}
-
-
+    
+    if(processChanged == true){  //we found a higher priority process
+        //need to delete it from the queue
+        
+    }
+    
+    
 }
 /* ------------------------------------------------------------------------
  Name - startup
@@ -176,12 +187,6 @@ int P1_Fork(char *name, int (*f)(void *), void *arg, int stacksize, int priority
     if(!(USLOSS_PSR_CURRENT_MODE & USLOSS_psrGet()){
         //throw some sort of error because it was not in kernel mode
     }
-       
-       //check if the given process has an invalid priorty
-       if(priority > 6 ||priority < 1){
-           //throw some sorort of error because priority os put of bounds
-       }
-       
        for (i = 0; i < P1_MAXPROC ; i++) {
            if(procTable[i].PID == -1){
                break;
@@ -191,104 +196,104 @@ int P1_Fork(char *name, int (*f)(void *), void *arg, int stacksize, int priority
        //if no more processes, return -1.
        if(newPid >= P1_MAXPROC){
            result = -1;
-      }else{
-       /* newPid = pid of empty PCB here */
-       procTable[newPid].startFunc = f;
-       procTable[newPid].startArg = arg;
-       procTable[newPid].PID = newPid;
-       procTable[newPid].priority = priority;
-       procTable[newPid].stacksize = stacksize;
-       procTable[newPid].status = 0; /* process is runnable */
-       // more stuff here, e.g. allocate stack, page table, initialize context, etc.
-       P3_AllocatePageTable(newPid);
-       //Assume stack is integer type
-       procTable[newPid].stack = (int*)malloc(stacksize * sizeof(int));
-       //Not sure initialize context in Fork or dispatcher
-       USLOSS_ContextSwitch(NULL,procTable[newPid].context);
-
-       if (priority < procTable[pid].priority) {
-           insert(newPid);
-           dispatcher();
-       }
-       
-       if(tag != 0 && tag != 1){  //if tage is invalid, return -4
-           result = -4;
-           
+       }else if(tag != 0 && tag != 1){  //if tage is invalid, return -4
+               result = -4;
+       }else if(priority > 6 ||priority < 1){//check if the given process has an invalid priorty
+               //throw some sorort of error because priority os put of bounds
+               result = -3;
        }else if(stacksize < USLOSS_MIN_STACK){ //if stacksize is less than USLOSS_MIN_STACK, return -2
-           result = -2;
-           //if no more processes, return -1. But I dont know what means no more processes, does that mean the
-           //process table is full?
+               result = -2;
        }else{
-           result = newPid;
-       }
+               
+               /* newPid = pid of empty PCB here */
+               procTable[newPid].startFunc = f;
+               procTable[newPid].startArg = arg;
+               procTable[newPid].PID = newPid;
+               procTable[newPid].priority = priority;
+               procTable[newPid].stacksize = stacksize;
+               procTable[newPid].status = 0; /* process is runnable */
+               // more stuff here, e.g. allocate stack, page table, initialize context, etc.
+               P3_AllocatePageTable(newPid);
+               //Assume stack is integer type
+               procTable[newPid].stack = (int*)malloc(stacksize * sizeof(int));
+               //Not sure initialize context in Fork or dispatcher
+               USLOSS_ContextSwitch(NULL,procTable[newPid].context);
+               
+               if (priority < procTable[pid].priority) {
+                   insert(newPid);
+                   dispatcher();
+               }
+               
+               result = newPid;
+           }
            
        }
        return newPid;
        } /* End of fork */
        
-    /* ------------------------------------------------------------------------
-     Name - launch
-     Purpose - Dummy function to enable interrupts and launch a given process
-     upon startup.
-     Parameters - none
-     Returns - nothing
-     Side Effects - enable interrupts
-     ------------------------------------------------------------------------ */
+       /* ------------------------------------------------------------------------
+        Name - launch
+        Purpose - Dummy function to enable interrupts and launch a given process
+        upon startup.
+        Parameters - none
+        Returns - nothing
+        Side Effects - enable interrupts
+        ------------------------------------------------------------------------ */
        void launch(void)
-    {
-        int  rc;
-        int  status;
-        status = USLOSS_PsrSet(USLOSS_PsrGet() | USLOSS_PSR_CURRENT_INT);
-        if (status != 0) {
-            USLOSS_Console("USLOSS_PsrSet failed: %d\n", status);
-            USLOSS_Halt(1);
-        }
-        rc = procTable[pid].startFunc(procTable[pid].startArg);
-        /* quit if we ever come back */
-        P1_Quit(rc);
-    } /* End of launch */
+       {
+           int  rc;
+           int  status;
+           status = USLOSS_PsrSet(USLOSS_PsrGet() | USLOSS_PSR_CURRENT_INT);
+           if (status != 0) {
+               USLOSS_Console("USLOSS_PsrSet failed: %d\n", status);
+               USLOSS_Halt(1);
+           }
+           rc = procTable[pid].startFunc(procTable[pid].startArg);
+           /* quit if we ever come back */
+           P1_Quit(rc);
+       } /* End of launch */
        
-    /* ------------------------------------------------------------------------
-     Name - P1_Quit
-     Purpose - Causes the process to quit and wait for its parent to call P1_Join.
-     Parameters - quit status
-     Returns - nothing
-     Side Effects - the currently running process quits
-     ------------------------------------------------------------------------ */
+       /* ------------------------------------------------------------------------
+        Name - P1_Quit
+        Purpose - Causes the process to quit and wait for its parent to call P1_Join.
+        Parameters - quit status
+        Returns - nothing
+        Side Effects - the currently running process quits
+        ------------------------------------------------------------------------ */
        void P1_Quit(int status) {
            // Do something here.
        }
        
-    /* ------------------------------------------------------------------------
-     Name - P1_GetState
-     Purpose - gets the state of the process
-     Parameters - process PID
-     Returns - process state
-     Side Effects - none
-     ------------------------------------------------------------------------ */
+       /* ------------------------------------------------------------------------
+        Name - P1_GetState
+        Purpose - gets the state of the process
+        Parameters - process PID
+        Returns - process state
+        Side Effects - none
+        ------------------------------------------------------------------------ */
        int P1_GetState(int PID) {
            return procTable[PID].PID;
        }
        
-    /* ------------------------------------------------------------------------
-     Name - sentinel
-     Purpose - The purpose of the sentinel routine is two-fold.  One
-     responsibility is to keep the system going when all other
-     processes are blocked.  The other is to detect and report
-     simple deadlock states.
-     Parameters - none
-     Returns - nothing
-     Side Effects -  if system is in deadlock, print appropriate error
-     and halt.
-     ----------------------------------------------------------------------- */
+       /* ------------------------------------------------------------------------
+        Name - sentinel
+        Purpose - The purpose of the sentinel routine is two-fold.  One
+        responsibility is to keep the system going when all other
+        processes are blocked.  The other is to detect and report
+        simple deadlock states.
+        Parameters - none
+        Returns - nothing
+        Side Effects -  if system is in deadlock, print appropriate error
+        and halt.
+        ----------------------------------------------------------------------- */
        int sentinel (void *notused)
-    {
-        while (numProcs > 1)
-        {
-            /* Check for deadlock here */
-            USLOSS_WaitInt();
-        }
-        USLOSS_Halt(0);
-        /* Never gets here. */
-        return 0;
-    } /* End of sentinel */
+       {
+           while (numProcs > 1)
+           {
+               /* Check for deadlock here */
+               USLOSS_WaitInt();
+           }
+           USLOSS_Halt(0);
+           /* Never gets here. */
+           return 0;
+       } /* End of sentinel */
