@@ -68,7 +68,7 @@ void insert(int PID)
     }
 }
 
-void deque(int targetPID)
+void delete(int targetPID)
 {
     if(front == NULL){ // if node tree is empty
 
@@ -133,7 +133,7 @@ void dispatcher()
 
 	USLOSS_ContextSwitch(&procTable[oldpid].context, &procTable[newpid].context) //we need to switch contexts "run it"
 
- 	deque(highestPriorityProcess.PID);  //takes care of deleting it from the queue
+ 	delete(highestPriorityProcess.PID);  //takes care of deleting it from the queue
 
 	}
     
