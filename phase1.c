@@ -39,6 +39,8 @@ PCB procTable[P1_MAXPROC];
 int pid = -1;
 /* size of the process queue */
 int queueSize =0;
+
+
 /* number of processes */
 
 int numProcs = 0;
@@ -84,15 +86,19 @@ int currentHighestPriority = pid; //set global pid to be the highest priority
 int positionInProcTable = 	0;  //this var holds the position in which a process is in the ProcTable
 PCB highestPriorityProcess;
 
-  for(i =0; i<queueSize; i++){
-	if(procTable[i].PID < currentHighestPriority){
-		currentHighestPriority = procTable[i].PID;	//save priority value
+  while(front != NULL){
+	if(front.data.priority < currentHighestPriority){
+		currentHighestPriority = front.data.PID;	//save priority value
 		positionInProcTable = i;			//save position in table
-		highestPriorityProcess = procTable[i].priority;		//save PCB
+		highestPriorityProcess = front.data.priority;		//save PCB
+		processChanged = true;
 	}
     }
 
-	
+  if(processChanged == true){  //we found a higher priority process
+	//need to delete it from the queue
+
+	}
 
 
 }
