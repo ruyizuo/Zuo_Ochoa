@@ -126,6 +126,7 @@ void dispatcher()
 
     if(processChanged == true){  //we found a higher priority process
      //We have highest PCB saved in highestPriorityProcess
+	int oldpid, newpid;
 	oldpid = pid;
 	newpid = highestPriorityProcess.PID;
 	pid = newpid;
