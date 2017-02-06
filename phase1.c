@@ -7,7 +7,9 @@
 #include <stddef.h>
 #include "usloss.h"
 #include "phase1.h"
-#include "p3stubs.c"
+#include <stdlib.h>
+#include <stdbool.h>
+
 
 /* -------------------------- Globals ------------------------------------- */
 
@@ -19,8 +21,10 @@ typedef struct PCB {
     int                  priority;
     int                  tag;
     int                  stacksize;
-    int                  *stack;
+    char                 *stack;
     int                  status;
+    char                 *name;
+    struct USLOSS_PTE *pageTable;
     
 } PCB;
 
@@ -28,7 +32,7 @@ typedef struct PCB {
 struct Node{
     PCB data;
     struct Node *next;
-}*front = NULL,*rear = NULL;
+}*head = NULL;
 
 
 /* the process table */
@@ -45,6 +49,11 @@ int queueSize =0;
 
 int numProcs = 0;
 
+int semaphore = -1;
+int oldpid = -1;
+int newpid = -1;
+int currentRunningPID = -1;
+
 static int sentinel(void *arg);
 static void launch(void);
 
@@ -54,46 +63,41 @@ static void launch(void);
 //queue structure
 void insert(int PID)
 {
-    struct Node *newNode;
-    newNode = (struct Node*)malloc(sizeof(struct Node));
-    newNode->data = procTable[PID];
-
-    queueSize++; //always update the queue size
-    newNode -> next = NULL;
-    if(front == NULL)
-        front = rear = newNode;
-    else{
-        rear -> next = newNode;
-        rear = newNode;
+    struct Node *temp;
+    temp=(struct Node *)malloc(sizeof(struct Node));
+    temp->data=procTable[PID];
+    if (head== NULL){
+        head=temp;
+        head->next=NULL;
+    }else{
+        temp->next=head;
+        head=temp;
     }
 }
 
 void delete(int targetPID)
 {
-    if(front == NULL){ // if node tree is empty
-
-    }else{
-	struct Node *traverser = front;
-
-	if(traverser->data.PID == targetPID){
-	  front = traverser->next;
-	  free(traverser);
-	  return;
-	}
-	while(traverser != NULL){
-  	  if(traverser->next == NULL)
-		break;
-	  if(traverser->next->data.PID == targetPID){
-		struct Node *temp = traverser->next;
-		traverser->next = traverser->next->next;
-		free(temp);
-		return;
-	 }
-	traverser = traverser->next;
-
-	}//end of while
-      }//close else
-    }//close dequeue()
+        struct Node *temp, *prev; //prev is the element before temp
+        temp=head;
+    
+        while(temp!=NULL){
+            
+            if((temp->data).PID == procTable[targetPID].PID){
+                
+                if(temp==head){
+                    head=temp->next;
+                    free(temp);
+                }else{
+                    prev->next=temp->next;
+                    free(temp);
+                }
+                
+            }else{  //if temp is not the highest priority we want
+                prev=temp;
+                temp= temp->next;
+            }
+        }
+}//close delete()
 
 
 
@@ -113,29 +117,67 @@ void dispatcher()
     int currentHighestPriority = pid; //set global pid to be the highest priority
     int positionInProcTable = 	0;  //this var holds the position in which a process is in the ProcTable
     PCB highestPriorityProcess;
-
-    while(front != NULL){
-        if(front->data.priority < currentHighestPriority){
-            currentHighestPriority = front->data.priority;	//save priority value
-            positionInProcTable = i;				//save position in table
-            highestPriorityProcess = front->data;		//save PCB
+    
+    
+    if(semaphore == -1){
+    if(head == NULL){
+       newpid = 0;
+//       USLOSS_Console("No current running process\n");
+//       USLOSS_Console("new process is %s\n",procTable[0].name);
+//       USLOSS_ContextSwitch(NULL, &procTable[0].context);
+        USLOSS_Console("~~~~~~~~~~\n");
+       procTable[0].status = 0;
+       pid = procTable[0].PID;
+    }else{
+    
+    struct Node *temp = head;
+    while(temp != NULL){
+        if((temp->data).priority < currentHighestPriority){
+            currentHighestPriority = (temp->data).priority;	 //save priority value
+            positionInProcTable = i;				         //save position in table
+            highestPriorityProcess = temp->data;		     //save PCB
             processChanged = true;
         }
+        else
+            head = head->next;
     }
     
+    
+    
+    if(processChanged){  //we found a higher priority process
+        //We have highest PCB saved in highestPriorityProcess
+        USLOSS_Console("==========\n");
+        oldpid = pid;
+        newpid = highestPriorityProcess.PID;
+        pid = newpid;
+//        
+//        USLOSS_Console("current running process is %s\n",procTable[oldpid].name);
+//        USLOSS_Console("new process is %s\n",procTable[newpid].name);
+//        USLOSS_ContextSwitch(NULL, &procTable[newpid].context); //we need to switch contexts "run it"
+        
+        currentRunningPID = newpid;
+        procTable[newpid].status = 0; //find the highest priority and make its status to "running"
+        procTable[newpid].status = 3; //wait for quitting
+        
+        delete(highestPriorityProcess.PID);  //takes care of deleting it from the queue
+        
+        
+      }
+    }
 
-    if(processChanged == true){  //we found a higher priority process
-     //We have highest PCB saved in highestPriorityProcess
-	int oldpid, newpid;
-	oldpid = pid;
-	newpid = highestPriorityProcess.PID;
-	pid = newpid;
-
-	USLOSS_ContextSwitch(&procTable[oldpid].context, &procTable[newpid].context) //we need to switch contexts "run it"
-
- 	delete(highestPriorityProcess.PID);  //takes care of deleting it from the queue
-
-	}
+    }else if(semaphore == 1){
+        
+        if(oldpid == -1){
+            USLOSS_Console("No current running process\n");
+            USLOSS_Console("new process is %s\n",procTable[0].name);
+            USLOSS_ContextSwitch(NULL, &procTable[0].context);
+        }else{
+            USLOSS_Console("current running process is %s\n",procTable[oldpid].name);
+            USLOSS_Console("new process is %s\n",procTable[newpid].name);
+            USLOSS_ContextSwitch(NULL, &procTable[newpid].context); //we need to switch contexts "run it"
+        }
+        
+    }
     
     
 }
@@ -170,12 +212,11 @@ void startup(int argc, char **argv)
      * it will call P1_Halt because it is the only running process.
      */
     P1_Fork("sentinel", sentinel, NULL, USLOSS_MIN_STACK, 6, 0);
-    
     /* start the P2_Startup process */
     P1_Fork("P2_Startup", P2_Startup, NULL, 4 * USLOSS_MIN_STACK, 1, 0);
+    semaphore = 1;
     
     dispatcher();
-    
     /* Should never get here (sentinel will call USLOSS_Halt) */
     
     return;
@@ -207,54 +248,63 @@ void finish(int argc, char **argv)
 // Use USLOSS_PSR_CURRENT_MODE & USLOSS_PsrGet to check kernel mode
 int P1_Fork(char *name, int (*f)(void *), void *arg, int stacksize, int priority, int tag)
 {
-    int i = 0;
+    int newPid = 0;
     int result;
     //check if in kernel mode
-    if(!(USLOSS_PSR_CURRENT_MODE & USLOSS_psrGet()){
+    if(!(USLOSS_PSR_CURRENT_MODE & USLOSS_PsrGet())){
         //throw some sort of error because it was not in kernel mode
     }
-       for (i = 0; i < P1_MAXPROC ; i++) {
-           if(procTable[i].PID == -1){
+       for (newPid = 0; newPid < P1_MAXPROC ; newPid++) {
+           if(procTable[newPid].PID == -1){
                break;
            }
        }
-       int newPid = i;
+ 
        //if no more processes, return -1.
        if(newPid >= P1_MAXPROC){
            result = -1;
        }else if(tag != 0 && tag != 1){  //if tage is invalid, return -4
-               result = -4;
+           result = -4;
        }else if(priority > 6 ||priority < 1){//check if the given process has an invalid priorty
-               //throw some sorort of error because priority os put of bounds
-               result = -3;
+           //throw some sorort of error because priority os put of bounds
+           result = -3;
        }else if(stacksize < USLOSS_MIN_STACK){ //if stacksize is less than USLOSS_MIN_STACK, return -2
-               result = -2;
+           result = -2;
        }else{
+           
+           /* newPid = pid of empty PCB here */
+           procTable[newPid].startFunc = f;
+           procTable[newPid].startArg = arg;
+           procTable[newPid].name = name;
+           procTable[newPid].PID = newPid;
+           procTable[newPid].priority = priority;
+           procTable[newPid].stacksize = stacksize;
+           procTable[newPid].status = 2; /* process we not use yet*/
+           // more stuff here, e.g. allocate stack, page table, initialize context, etc.
+           P3_AllocatePageTable(newPid);
+           //Assume stack is integer type
+           procTable[newPid].stack = (char*)malloc(stacksize * sizeof(char));
+           //Initiealize context
+           USLOSS_ContextInit(&(procTable[newPid].context), procTable[newPid].stack, stacksize,procTable[newPid].pageTable,(void *)procTable[newPid].startFunc);
+           
+           if(newPid == 0){
+               USLOSS_Console(">>>>>>>>\n");
+               insert(newPid);
                
-               /* newPid = pid of empty PCB here */
-               procTable[newPid].startFunc = f;
-               procTable[newPid].startArg = arg;
-               procTable[newPid].PID = newPid;
-               procTable[newPid].priority = priority;
-               procTable[newPid].stacksize = stacksize;
-               procTable[newPid].status = 0; /* process is runnable */
-               // more stuff here, e.g. allocate stack, page table, initialize context, etc.
-               P3_AllocatePageTable(newPid);
-               //Assume stack is integer type
-               procTable[newPid].stack = (int*)malloc(stacksize * sizeof(int));
-               //Initiealize context
-               USLOSS_ContextInit(&(procTable[newPid].context), USLOSS_PsrGet(), procTable[newPid].stack, stacksize, launch);
-               
-               if (priority < procTable[pid].priority) {
-                   insert(newPid);
-                   dispatcher();
-               }
-               
-               result = newPid;
+           }else{
+           
+           if (priority < procTable[pid].priority) {
+               USLOSS_Console("*******\n");
+               insert(newPid);
+               dispatcher();
+           }
            }
            
+           result = newPid;
+       
        }
-       return newPid;
+    
+    return result;
        } /* End of fork */
        
        /* ------------------------------------------------------------------------
@@ -298,8 +348,22 @@ int P1_Fork(char *name, int (*f)(void *), void *arg, int stacksize, int priority
         Side Effects - none
         ------------------------------------------------------------------------ */
        int P1_GetState(int PID) {
-           return procTable[PID].PID;
+           int i;
+           for (i=0; i<P1_MAXPROC; i++) {
+               if (procTable[i].PID == -1) {
+                   break;
+               }
+           }
+           if(PID > i){ //invalid ID
+               return -1;
+           }else
+           return procTable[PID].status;
        }
+       
+       int P1_GetPid() {
+           return currentRunningPID;
+       }
+
        
        /* ------------------------------------------------------------------------
         Name - sentinel
