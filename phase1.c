@@ -65,7 +65,7 @@ void insert(int PID)
 {
     struct Node *temp;
     temp=(struct Node *)malloc(sizeof(struct Node));
-    temp->data=procTable[PID];
+    temp->data=(PCB)procTable[PID];
     if (head== NULL){
         head=temp;
         head->next=NULL;
@@ -114,71 +114,65 @@ void dispatcher()
 {
     int i =0;
     bool processChanged = false;  //this boolean will be set to true IF we found a process with higher priority to run
-    int currentHighestPriority = pid; //set global pid to be the highest priority
+    int currentHighestPriority = procTable[pid].priority; //set global pid to be the highest priority
     int positionInProcTable = 	0;  //this var holds the position in which a process is in the ProcTable
     PCB highestPriorityProcess;
     
     
-    if(semaphore == -1){
-    if(head == NULL){
-       newpid = 0;
-//       USLOSS_Console("No current running process\n");
-//       USLOSS_Console("new process is %s\n",procTable[0].name);
-//       USLOSS_ContextSwitch(NULL, &procTable[0].context);
-        USLOSS_Console("~~~~~~~~~~\n");
-       procTable[0].status = 0;
-       pid = procTable[0].PID;
+    if (semaphore == -1) {
+    if(pid == -1){
+      newpid = 0;
+      //USLOSS_Console("~~~~~~~~~~\n");
+      procTable[0].status = 0;
+      pid = 0;
     }else{
-    
-    struct Node *temp = head;
+    //USLOSS_Console("^^^^^^^^\n");
+    struct Node *temp;
+        temp = head;
     while(temp != NULL){
+        //USLOSS_Console("#########\n");
         if((temp->data).priority < currentHighestPriority){
+            //USLOSS_Console("&&&&&&&&&\n");
             currentHighestPriority = (temp->data).priority;	 //save priority value
             positionInProcTable = i;				         //save position in table
             highestPriorityProcess = temp->data;		     //save PCB
             processChanged = true;
         }
         else
-            head = head->next;
+            temp = temp->next;
     }
-    
     
     
     if(processChanged){  //we found a higher priority process
         //We have highest PCB saved in highestPriorityProcess
-        USLOSS_Console("==========\n");
+        //USLOSS_Console("==========\n");
         oldpid = pid;
         newpid = highestPriorityProcess.PID;
         pid = newpid;
-//        
-//        USLOSS_Console("current running process is %s\n",procTable[oldpid].name);
-//        USLOSS_Console("new process is %s\n",procTable[newpid].name);
-//        USLOSS_ContextSwitch(NULL, &procTable[newpid].context); //we need to switch contexts "run it"
         
+
         currentRunningPID = newpid;
-        procTable[newpid].status = 0; //find the highest priority and make its status to "running"
-        procTable[newpid].status = 3; //wait for quitting
+        procTable[newpid].status = 1; //find the highest priority and make its status to "running"
+        procTable[oldpid].status = 3; //wait for quitting
         
-        delete(highestPriorityProcess.PID);  //takes care of deleting it from the queue
-        
+        //delete(newpid);  //takes care of deleting it from the queue
         
       }
     }
-
     }else if(semaphore == 1){
-        
         if(oldpid == -1){
             USLOSS_Console("No current running process\n");
             USLOSS_Console("new process is %s\n",procTable[0].name);
             USLOSS_ContextSwitch(NULL, &procTable[0].context);
+            procTable[0].status = 0;
         }else{
-            USLOSS_Console("current running process is %s\n",procTable[oldpid].name);
-            USLOSS_Console("new process is %s\n",procTable[newpid].name);
-            USLOSS_ContextSwitch(NULL, &procTable[newpid].context); //we need to switch contexts "run it"
+        USLOSS_Console("current running process is %s\n",procTable[oldpid].name);
+        USLOSS_Console("new process is %s\n",procTable[newpid].name);
+        USLOSS_ContextSwitch(NULL, &procTable[newpid].context); //we need to switch contexts "run it"
+        procTable[newpid].status = 0;
         }
-        
     }
-    
+
     
 }
 /* ------------------------------------------------------------------------
@@ -288,13 +282,14 @@ int P1_Fork(char *name, int (*f)(void *), void *arg, int stacksize, int priority
            USLOSS_ContextInit(&(procTable[newPid].context), procTable[newPid].stack, stacksize,procTable[newPid].pageTable,(void *)procTable[newPid].startFunc);
            
            if(newPid == 0){
-               USLOSS_Console(">>>>>>>>\n");
+               //USLOSS_Console(">>>>>>>>\n");
                insert(newPid);
+               dispatcher();
                
            }else{
            
            if (priority < procTable[pid].priority) {
-               USLOSS_Console("*******\n");
+               //USLOSS_Console("*******\n");
                insert(newPid);
                dispatcher();
            }
@@ -303,7 +298,6 @@ int P1_Fork(char *name, int (*f)(void *), void *arg, int stacksize, int priority
            result = newPid;
        
        }
-    
     return result;
        } /* End of fork */
        
