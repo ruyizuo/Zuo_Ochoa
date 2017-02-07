@@ -159,7 +159,7 @@ void dispatcher()
        while(temp != NULL){
          
         findCurrentHighestPriority();
-           
+        //USLOSS_Console("Highest priority is %d\n",max);
         if((temp->data).priority <= max){
    
             highestPriorityProcess = (PCB)temp->data;		     //save PCB
@@ -344,19 +344,10 @@ int P1_Fork(char *name, int (*f)(void *), void *arg, int stacksize, int priority
            //Initiealize context
            USLOSS_ContextInit(&(procTable[newPid].context), procTable[newPid].stack, stacksize,procTable[newPid].pageTable,launch);
            
-           if(newPid == 0){
-               //USLOSS_Console(">>>>>>>>\n");
+
                insert(newPid);
                dispatcher();
-               
-           }else{
-           
-           if (priority < procTable[pid].priority) {
-               //USLOSS_Console("*******\n");
-               insert(newPid);
-               dispatcher();
-           }
-           }
+          
            
            result = newPid;
        
