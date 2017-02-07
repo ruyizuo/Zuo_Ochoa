@@ -44,7 +44,7 @@ int pid = -1;
 /* size of the process queue */
 int queueSize =0;
 
-int max;
+
 
 /* number of processes */
 
@@ -109,10 +109,10 @@ void delete(int targetPID)
 }//close delete()
 
 
-void findCurrentHighestPriority(){
+int findCurrentHighestPriority(){
     struct Node *temp;
     temp = head;
-    max = (head->data).priority;
+    int max = (head->data).priority;
     while(temp != NULL){
         if (max > (temp->data).priority) {
             max = (temp->data).priority;
@@ -122,6 +122,7 @@ void findCurrentHighestPriority(){
         }
     }
     free(temp);
+    return max;
 }
 
 
@@ -158,9 +159,10 @@ void dispatcher()
         
        while(temp != NULL){
          
-        findCurrentHighestPriority();
+        int highest = findCurrentHighestPriority();
+           
         //USLOSS_Console("Highest priority is %d\n",max);
-        if((temp->data).priority <= max){
+        if((temp->data).priority <= highest){
    
             highestPriorityProcess = (PCB)temp->data;		     //save PCB
             
@@ -171,13 +173,11 @@ void dispatcher()
                     oldpid = pid;
                     USLOSS_Console("No current running process\n");
                     USLOSS_Console("new process with highest priority is %s\n",procTable[newpid].name);
-                    USLOSS_ContextSwitch(NULL, &procTable[newpid].context);
                     procTable[newpid].status = 1;
                     currentRunningPID = newpid;
-            
                     delete(newpid);  //takes care of deleting it from the queue
-                    
-                    temp = temp->next;
+                    USLOSS_ContextSwitch(NULL, &procTable[newpid].context);
+
                 }else{
                 
             oldpid = pid;
@@ -187,19 +187,20 @@ void dispatcher()
             
             currentRunningPID = newpid;
             
-            USLOSS_Console("current running process is %s\n",procTable[oldpid].name);
             USLOSS_Console("new process with highest priority is %s\n",procTable[newpid].name);
-            USLOSS_ContextSwitch(NULL, &procTable[newpid].context); //we need to switch contexts "run it"
+             
             procTable[newpid].status = 1; //find the highest priority and make its status to "running"
             procTable[oldpid].status = 3; //wait for quitting
             delete(newpid);  //takes care of deleting it from the queue
-            temp = temp->next;
+                    
+            USLOSS_ContextSwitch(NULL, &procTable[newpid].context); //we need to switch contexts "run it"
                 }
             
             }else{
             temp = temp->next;
         }
-    }
+         free(temp);
+       }
         
     
 //    if(processChanged){  //we found a higher priority process
@@ -232,6 +233,7 @@ void dispatcher()
 //
 //        }
     }
+    
 
     
 }
@@ -349,7 +351,7 @@ int P1_Fork(char *name, int (*f)(void *), void *arg, int stacksize, int priority
                dispatcher();
           
            
-           result = newPid;
+               result = newPid;
        
        }
     return result;
@@ -386,7 +388,10 @@ int P1_Fork(char *name, int (*f)(void *), void *arg, int stacksize, int priority
         ------------------------------------------------------------------------ */
        void P1_Quit(int status) {
            // Do something here.
-           USLOSS_Halt(0);
+           USLOSS_Console("current running process is %s\n",procTable[newpid].name);
+           procTable[newpid].status = 3;
+           USLOSS_Console("%s quits\n",procTable[newpid].name);
+           dispatcher();
        }
        
        /* ------------------------------------------------------------------------
@@ -427,6 +432,7 @@ int P1_Fork(char *name, int (*f)(void *), void *arg, int stacksize, int priority
         ----------------------------------------------------------------------- */
        int sentinel (void *notused)
        {
+           USLOSS_Console("sentinel is running");
            while (numProcs > 1)
            {
                /* Check for deadlock here */
