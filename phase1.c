@@ -44,18 +44,20 @@ int pid = -1;
 /* size of the process queue */
 int queueSize =0;
 
+int max;
 
 /* number of processes */
 
 int numProcs = 0;
 
-int semaphore = -1;
+int flag = -1;
 int oldpid = -1;
 int newpid = -1;
 int currentRunningPID = -1;
 
 static int sentinel(void *arg);
 static void launch(void);
+
 
 
 
@@ -79,7 +81,13 @@ void delete(int targetPID)
 {
         struct Node *temp, *prev; //prev is the element before temp
         temp=head;
+    if (temp == NULL) {
     
+         USLOSS_Console("The priority queue is empty\n");
+         return;
+        
+    }else{
+        
         while(temp!=NULL){
             
             if((int)(temp->data).PID == targetPID){
@@ -97,8 +105,24 @@ void delete(int targetPID)
                 temp= temp->next;
             }
         }
+    }
 }//close delete()
 
+
+void findCurrentHighestPriority(){
+    struct Node *temp;
+    temp = head;
+    max = (head->data).priority;
+    while(temp != NULL){
+        if (max > (temp->data).priority) {
+            max = (temp->data).priority;
+            temp = temp->next;
+        }else{
+            temp = temp->next;
+        }
+    }
+    free(temp);
+}
 
 
 /* ------------------------------------------------------------------------
@@ -112,68 +136,106 @@ void delete(int targetPID)
 
 void dispatcher()
 {
-    int i =0;
-    bool processChanged = false;  //this boolean will be set to true IF we found a process with higher priority to run
-    int currentHighestPriority = procTable[pid].priority; //set global pid to be the highest priority
-    int positionInProcTable = 	0;  //this var holds the position in which a process is in the ProcTable
+
     PCB highestPriorityProcess;
     
     
-    if (semaphore == -1) {
-    if(pid == -1){
-      newpid = 0;
-      //USLOSS_Console("~~~~~~~~~~\n");
-      procTable[0].status = 0;
-      pid = 0;
-    }else{
-    //USLOSS_Console("^^^^^^^^\n");
+    if (flag == 1) {
+//      procTable[0].status = 0;
+//      pid = 0;
+//        
+//    if(oldpid == -1){
+//        
+//        USLOSS_Console("No current running process\n");
+//        USLOSS_Console("new process with highest priority is %s\n",procTable[0].name);
+//        USLOSS_ContextSwitch(NULL, &procTable[0].context);
+//        procTable[0].status = 0;
+//            
+//    }else{
+
     struct Node *temp;
         temp = head;
-    while(temp != NULL){
-        //USLOSS_Console("#########\n");
-        if((temp->data).priority < currentHighestPriority){
-            //USLOSS_Console("&&&&&&&&&\n");
-            currentHighestPriority = (temp->data).priority;	 //save priority value
-            positionInProcTable = i;				         //save position in table
-            highestPriorityProcess = temp->data;		     //save PCB
-            processChanged = true;
-        }
-        else
+        
+       while(temp != NULL){
+         
+        findCurrentHighestPriority();
+           
+        if((temp->data).priority <= max){
+   
+            highestPriorityProcess = (PCB)temp->data;		     //save PCB
+            
+            
+                if(oldpid == -1){
+                    pid = highestPriorityProcess.PID;
+                    newpid = highestPriorityProcess.PID;
+                    oldpid = pid;
+                    USLOSS_Console("No current running process\n");
+                    USLOSS_Console("new process with highest priority is %s\n",procTable[newpid].name);
+                    USLOSS_ContextSwitch(NULL, &procTable[newpid].context);
+                    procTable[newpid].status = 1;
+                    currentRunningPID = newpid;
+            
+                    delete(newpid);  //takes care of deleting it from the queue
+                    
+                    temp = temp->next;
+                }else{
+                
+            oldpid = pid;
+            newpid = highestPriorityProcess.PID;
+            pid = newpid;
+            
+            
+            currentRunningPID = newpid;
+            
+            USLOSS_Console("current running process is %s\n",procTable[oldpid].name);
+            USLOSS_Console("new process with highest priority is %s\n",procTable[newpid].name);
+            USLOSS_ContextSwitch(NULL, &procTable[newpid].context); //we need to switch contexts "run it"
+            procTable[newpid].status = 1; //find the highest priority and make its status to "running"
+            procTable[oldpid].status = 3; //wait for quitting
+            delete(newpid);  //takes care of deleting it from the queue
             temp = temp->next;
-    }
-    
-    
-    if(processChanged){  //we found a higher priority process
-        //We have highest PCB saved in highestPriorityProcess
-        //USLOSS_Console("==========\n");
-        oldpid = pid;
-        newpid = highestPriorityProcess.PID;
-        pid = newpid;
-        
-
-        currentRunningPID = newpid;
-        
-        //delete(newpid);  //takes care of deleting it from the queue
-        
-      }
-    }
-    }else if(semaphore == 1){
-        if(oldpid == -1){
-            USLOSS_Console("No current running process\n");
-            USLOSS_Console("new process is %s\n",procTable[0].name);
-            USLOSS_ContextSwitch(NULL, &procTable[0].context);
-            procTable[0].status = 0;
-        }else{
-        USLOSS_Console("current running process is %s\n",procTable[oldpid].name);
-        USLOSS_Console("new process is %s\n",procTable[newpid].name);
-        USLOSS_ContextSwitch(NULL, &procTable[newpid].context); //we need to switch contexts "run it"
-        procTable[newpid].status = 1; //find the highest priority and make its status to "running"
-        procTable[oldpid].status = 3; //wait for quitting
+                }
+            
+            }else{
+            temp = temp->next;
         }
+    }
+        
+    
+//    if(processChanged){  //we found a higher priority process
+//        //We have highest PCB saved in highestPriorityProcess
+//        //USLOSS_Console("==========\n");
+//        oldpid = pid;
+//        newpid = highestPriorityProcess.PID;
+//        pid = newpid;
+//        
+//
+//        currentRunningPID = newpid;
+//        
+//        USLOSS_Console("current running process is %s\n",procTable[oldpid].name);
+//        USLOSS_Console("new process with highest priority is %s\n",procTable[newpid].name);
+//         USLOSS_ContextSwitch(&procTable[oldpid].context, &procTable[newpid].context); //we need to switch contexts "run it"
+//        procTable[newpid].status = 1; //find the highest priority and make its status to "running"
+//        procTable[oldpid].status = 3; //wait for quitting
+//        delete(newpid);  //takes care of deleting it from the queue
+//        
+//      
+//    }
+        
+    }else if(flag == -1){
+        return;
+//        if(oldpid == -1){
+//            USLOSS_ContextSwitch(NULL, &procTable[0].context);
+//        }else{
+//       
+//        USLOSS_ContextSwitch(NULL, &procTable[newpid].context); //we need to switch contexts "run it"
+//
+//        }
     }
 
     
 }
+
 /* ------------------------------------------------------------------------
  Name - startup
  Purpose - Initializes semaphores, process lists and interrupt vector.
@@ -208,7 +270,7 @@ void startup(int argc, char **argv)
     /* start the P2_Startup process */
     P1_Fork("P2_Startup", P2_Startup, NULL, 4 * USLOSS_MIN_STACK, 1, 0);
     
-    semaphore = 1;
+    flag = 1;
     
     dispatcher();
     
