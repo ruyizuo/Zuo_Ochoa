@@ -82,7 +82,7 @@ void delete(int targetPID)
     
         while(temp!=NULL){
             
-            if((temp->data).PID == procTable[targetPID].PID){
+            if((int)(temp->data).PID == targetPID){
                 
                 if(temp==head){
                     head=temp->next;
@@ -152,8 +152,6 @@ void dispatcher()
         
 
         currentRunningPID = newpid;
-        procTable[newpid].status = 1; //find the highest priority and make its status to "running"
-        procTable[oldpid].status = 3; //wait for quitting
         
         //delete(newpid);  //takes care of deleting it from the queue
         
@@ -169,7 +167,8 @@ void dispatcher()
         USLOSS_Console("current running process is %s\n",procTable[oldpid].name);
         USLOSS_Console("new process is %s\n",procTable[newpid].name);
         USLOSS_ContextSwitch(NULL, &procTable[newpid].context); //we need to switch contexts "run it"
-        procTable[newpid].status = 0;
+        procTable[newpid].status = 1; //find the highest priority and make its status to "running"
+        procTable[oldpid].status = 3; //wait for quitting
         }
     }
 
@@ -208,9 +207,11 @@ void startup(int argc, char **argv)
     P1_Fork("sentinel", sentinel, NULL, USLOSS_MIN_STACK, 6, 0);
     /* start the P2_Startup process */
     P1_Fork("P2_Startup", P2_Startup, NULL, 4 * USLOSS_MIN_STACK, 1, 0);
+    
     semaphore = 1;
     
     dispatcher();
+    
     /* Should never get here (sentinel will call USLOSS_Halt) */
     
     return;
@@ -273,13 +274,13 @@ int P1_Fork(char *name, int (*f)(void *), void *arg, int stacksize, int priority
            procTable[newPid].PID = newPid;
            procTable[newPid].priority = priority;
            procTable[newPid].stacksize = stacksize;
-           procTable[newPid].status = 2; /* process we not use yet*/
+           procTable[newPid].status = 1; /* process we not use yet*/
            // more stuff here, e.g. allocate stack, page table, initialize context, etc.
            P3_AllocatePageTable(newPid);
            //Assume stack is integer type
            procTable[newPid].stack = (char*)malloc(stacksize * sizeof(char));
            //Initiealize context
-           USLOSS_ContextInit(&(procTable[newPid].context), procTable[newPid].stack, stacksize,procTable[newPid].pageTable,(void *)procTable[newPid].startFunc);
+           USLOSS_ContextInit(&(procTable[newPid].context), procTable[newPid].stack, stacksize,procTable[newPid].pageTable,launch);
            
            if(newPid == 0){
                //USLOSS_Console(">>>>>>>>\n");
@@ -318,7 +319,7 @@ int P1_Fork(char *name, int (*f)(void *), void *arg, int stacksize, int priority
                USLOSS_Console("USLOSS_PsrSet failed: %d\n", status);
                USLOSS_Halt(1);
            }
-           rc = procTable[pid].startFunc(procTable[pid].startArg);
+           rc = procTable[pid].status;
            /* quit if we ever come back */
            P1_Quit(rc);
        } /* End of launch */
@@ -332,6 +333,7 @@ int P1_Fork(char *name, int (*f)(void *), void *arg, int stacksize, int priority
         ------------------------------------------------------------------------ */
        void P1_Quit(int status) {
            // Do something here.
+           USLOSS_Halt(0);
        }
        
        /* ------------------------------------------------------------------------
