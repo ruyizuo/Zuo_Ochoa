@@ -2,6 +2,8 @@
  phase1.c
  Skeleton file for Phase 1. These routines are very incomplete and are
  intended to give you a starting point. Feel free to use this or not.
+ 
+ Author: Yan Ochoa, Ruyi Zuo
  ------------------------------------------------------------------------ */
 
 #include <stddef.h>
@@ -55,6 +57,7 @@ int oldpid = -1;
 int newpid = -1;
 int currentRunningPID = -1;
 
+USLOSS_Context currentCon;
 static int sentinel(void *arg);
 static void launch(void);
 
@@ -94,10 +97,10 @@ void delete(int targetPID)
                 
                 if(temp==head){
                     head=temp->next;
-                    free(temp);
+                    temp = NULL;
                 }else{
                     prev->next=temp->next;
-                    free(temp);
+                    temp = NULL;
                 }
                 
             }else{  //if temp is not the highest priority we want
@@ -121,7 +124,6 @@ int findCurrentHighestPriority(){
             temp = temp->next;
         }
     }
-    free(temp);
     return max;
 }
 
@@ -142,17 +144,6 @@ void dispatcher()
     
     
     if (flag == 1) {
-//      procTable[0].status = 0;
-//      pid = 0;
-//        
-//    if(oldpid == -1){
-//        
-//        USLOSS_Console("No current running process\n");
-//        USLOSS_Console("new process with highest priority is %s\n",procTable[0].name);
-//        USLOSS_ContextSwitch(NULL, &procTable[0].context);
-//        procTable[0].status = 0;
-//            
-//    }else{
 
     struct Node *temp;
         temp = head;
@@ -176,7 +167,8 @@ void dispatcher()
                     procTable[newpid].status = 1;
                     currentRunningPID = newpid;
                     delete(newpid);  //takes care of deleting it from the queue
-                    USLOSS_ContextSwitch(NULL, &procTable[newpid].context);
+                    numProcs--;
+                    USLOSS_ContextSwitch(NULL, &highestPriorityProcess.context);
 
                 }else{
                 
@@ -190,48 +182,23 @@ void dispatcher()
             USLOSS_Console("new process with highest priority is %s\n",procTable[newpid].name);
              
             procTable[newpid].status = 1; //find the highest priority and make its status to "running"
-            procTable[oldpid].status = 3; //wait for quitting
             delete(newpid);  //takes care of deleting it from the queue
-                    
-            USLOSS_ContextSwitch(NULL, &procTable[newpid].context); //we need to switch contexts "run it"
-                }
+            numProcs--;
+            
+            USLOSS_ContextSwitch(NULL, &highestPriorityProcess.context); //we need to switch contexts "run it"
+            
+             }
             
             }else{
             temp = temp->next;
         }
-         free(temp);
+
        }
-        
-    
-//    if(processChanged){  //we found a higher priority process
-//        //We have highest PCB saved in highestPriorityProcess
-//        //USLOSS_Console("==========\n");
-//        oldpid = pid;
-//        newpid = highestPriorityProcess.PID;
-//        pid = newpid;
-//        
-//
-//        currentRunningPID = newpid;
-//        
-//        USLOSS_Console("current running process is %s\n",procTable[oldpid].name);
-//        USLOSS_Console("new process with highest priority is %s\n",procTable[newpid].name);
-//         USLOSS_ContextSwitch(&procTable[oldpid].context, &procTable[newpid].context); //we need to switch contexts "run it"
-//        procTable[newpid].status = 1; //find the highest priority and make its status to "running"
-//        procTable[oldpid].status = 3; //wait for quitting
-//        delete(newpid);  //takes care of deleting it from the queue
-//        
-//      
-//    }
+
         
     }else if(flag == -1){
         return;
-//        if(oldpid == -1){
-//            USLOSS_ContextSwitch(NULL, &procTable[0].context);
-//        }else{
-//       
-//        USLOSS_ContextSwitch(NULL, &procTable[newpid].context); //we need to switch contexts "run it"
-//
-//        }
+
     }
     
 
@@ -312,6 +279,7 @@ int P1_Fork(char *name, int (*f)(void *), void *arg, int stacksize, int priority
     //check if in kernel mode
     if(!(USLOSS_PSR_CURRENT_MODE & USLOSS_PsrGet())){
         //throw some sort of error because it was not in kernel mode
+        USLOSS_IllegalInstruction();
     }
        for (newPid = 0; newPid < P1_MAXPROC ; newPid++) {
            if(procTable[newPid].PID == -1){
@@ -340,14 +308,15 @@ int P1_Fork(char *name, int (*f)(void *), void *arg, int stacksize, int priority
            procTable[newPid].stacksize = stacksize;
            procTable[newPid].status = 1; /* process we not use yet*/
            // more stuff here, e.g. allocate stack, page table, initialize context, etc.
-           P3_AllocatePageTable(newPid);
            //Assume stack is integer type
            procTable[newPid].stack = (char*)malloc(stacksize * sizeof(char));
+           P3_AllocatePageTable(newPid);
            //Initiealize context
-           USLOSS_ContextInit(&(procTable[newPid].context), procTable[newPid].stack, stacksize,procTable[newPid].pageTable,launch);
+           USLOSS_ContextInit(&procTable[newPid].context, procTable[newPid].stack, stacksize,procTable[newPid].pageTable,launch);
            
 
                insert(newPid);
+               numProcs++;
                dispatcher();
           
            
@@ -374,7 +343,7 @@ int P1_Fork(char *name, int (*f)(void *), void *arg, int stacksize, int priority
                USLOSS_Console("USLOSS_PsrSet failed: %d\n", status);
                USLOSS_Halt(1);
            }
-           rc = procTable[pid].status;
+           rc = procTable[pid].startFunc(procTable[pid].startArg);
            /* quit if we ever come back */
            P1_Quit(rc);
        } /* End of launch */
@@ -391,6 +360,7 @@ int P1_Fork(char *name, int (*f)(void *), void *arg, int stacksize, int priority
            USLOSS_Console("current running process is %s\n",procTable[newpid].name);
            procTable[newpid].status = 3;
            USLOSS_Console("%s quits\n",procTable[newpid].name);
+           P3_FreePageTable(newpid);
            dispatcher();
        }
        
@@ -432,12 +402,13 @@ int P1_Fork(char *name, int (*f)(void *), void *arg, int stacksize, int priority
         ----------------------------------------------------------------------- */
        int sentinel (void *notused)
        {
-           USLOSS_Console("sentinel is running");
+           USLOSS_Console("sentinel is running\n");
            while (numProcs > 1)
            {
                /* Check for deadlock here */
                USLOSS_WaitInt();
            }
+    
            USLOSS_Halt(0);
            /* Never gets here. */
            return 0;
